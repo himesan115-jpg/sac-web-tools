@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Text Link Shortener | ページ内リンク短縮ツール</title>
+<style>
+:root{color-scheme:light;--ink:#222c36;--muted:#667482;--line:#d9e0e6;--accent:#255b83;--bg:#f2f5f7}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Yu Gothic UI",Meiryo,sans-serif;line-height:1.65}main{max-width:760px;margin:48px auto;padding:0 20px}header{margin-bottom:24px}.eyebrow{font-size:11px;letter-spacing:.16em;font-weight:700;color:var(--accent)}h1{font-size:clamp(23px,5vw,32px);line-height:1.25;letter-spacing:-.025em;margin:8px 0 4px}header p{font-size:14px;color:var(--muted);margin:0}.panel{background:white;border:1px solid var(--line);border-radius:16px;padding:26px;box-shadow:0 5px 24px #22334408}label,.label{display:block;font-size:13px;font-weight:700;margin:0 0 8px}textarea{display:block;width:100%;font:14px/1.6 ui-monospace,SFMono-Regular,Consolas,monospace;border:1px solid var(--line);border-radius:8px;padding:12px;resize:vertical;min-height:104px;color:var(--ink);background:#fff;overflow-wrap:anywhere}textarea:focus,button:focus-visible,a:focus-visible{outline:3px solid #90bde0;outline-offset:2px}.output{margin-top:24px;padding-top:20px;border-top:1px solid var(--line)}.line{display:flex;align-items:baseline;justify-content:space-between;gap:10px}.count{font-variant-numeric:tabular-nums;font-size:13px;color:var(--muted)}.count.ok{color:#176840}.count.bad{color:#ae302f}#target{margin:0 0 12px;overflow-wrap:anywhere;font-size:14px}#result{background:#f7f9fb;min-height:86px}#status{font-size:13px;color:var(--muted);margin:10px 0 0;min-height:22px}#status.bad{color:#ae302f}#status.ok{color:#176840}.buttons{display:flex;gap:9px;flex-wrap:wrap;margin-top:14px}button,a.action{appearance:none;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--line);border-radius:8px;padding:10px 16px;font:600 14px/1.5 inherit;font-family:inherit;font-size:14px;font-weight:600;text-decoration:none;background:#fff;color:var(--ink);cursor:pointer;flex:1;min-width:100px}button.primary{background:var(--accent);border-color:var(--accent);color:#fff;flex:1.5}button:disabled,a[aria-disabled=true]{opacity:.4;cursor:not-allowed;pointer-events:none}button:not(:disabled):hover,a.action:hover{filter:brightness(.96)}details{margin-top:20px;font-size:13px;color:var(--muted)}summary{cursor:pointer;font-weight:600;color:var(--ink)}ol{padding-left:22px}footer{font-size:12px;color:var(--muted);text-align:center;margin:24px 0}code{overflow-wrap:anywhere} @media(max-width:480px){main{margin:24px auto;padding:0 12px}.panel{padding:18px}.buttons{gap:6px}button,a.action{padding:10px 8px;min-width:80px}}
+</style>
+</head>
+<body><main>
+<header><div class="eyebrow">WEB PRODUCTION TOOL / 01</div><h1>Text Link Shortener</h1><p>ページ内リンク（テキストフラグメント）短縮ツール</p></header>
+<section class="panel">
+<label for="source">01　元のURL</label><textarea id="source" spellcheck="false" placeholder="Chromeの「ハイライトへのリンクをコピー」で取得したURLを貼り付け"></textarea>
+<div class="output"><p id="target" hidden></p><div class="line"><label for="result">02　短縮後のURL</label><span class="count" id="count">0 / 255文字</span></div><textarea id="result" readonly spellcheck="false" placeholder="変換結果がここに表示されます"></textarea><p id="status" role="status" aria-live="polite">URLを貼り付けると自動で変換します。</p>
+<div class="buttons"><button id="copy" class="primary" disabled>URLをコピー</button><a id="jump" class="action" target="_blank" rel="noopener noreferrer" aria-disabled="true">ジャンプ確認 ↗</a><button id="clear">クリア</button></div></div>
+<details><summary>使い方・注意事項</summary><ol><li>公開ページで移動先の文字を選択し、右クリック →「ハイライトへのリンクをコピー」。</li><li>このツールに貼り付けると、前後の文脈だけが削除されます。</li><li>短縮後のURLをコピーし、Biiinoのリンク先に設定します。</li></ol><p>同じ文字が複数あると別の場所へ移動することがあります。画像内の文字には対応しません。範囲指定・複数指定は誤変換防止のため処理しません。255文字は今回のBiiino設定画面で確認された制限です。ブラウザや楽天アプリによって動作が異なるため、公開後も実際のリンクを確認してください。</p></details>
+</section><footer>v1.0 · ローカル処理／外部ライブラリなし<br>「ジャンプ確認」を押した場合のみ対象ページを開きます。</footer>
+</main><script>
+'use strict';
+function shorten(input){
+ const raw=input.trim(); if(!raw)return {empty:true};
+ if(/[\s\u0000-\u001f\u007f]/u.test(raw))return {error:'URLに空白・改行が含まれています。元のURLをコピーし直してください。'};
+ let url;try{url=new URL(raw)}catch{return {error:'正しいURLを入力してください。'}}
+ if(!/^https?:\/\//i.test(raw)||!['http:','https:'].includes(url.protocol))return {error:'http または https のURLを入力してください。'};
+ const mark=':~:text=';const hash=raw.indexOf('#');const at=hash<0?-1:raw.indexOf(mark,hash+1);
+ if(at<0)return {error:'テキストフラグメント（#:~:text=）が見つかりません。'};
+ const fragment=raw.slice(at+mark.length);
+ if(fragment.includes('&'))return {error:'複数のフラグメント指定には対応していません。単一の文字列を選択してください。'};
+ let target=fragment; const prefix=target.indexOf('-,'); if(prefix>=0)target=target.slice(prefix+2);
+ const suffix=target.indexOf(',-'); if(suffix>=0)target=target.slice(0,suffix);
+ if(!target||target.includes(',')||target.includes('#')||target.includes(':~:'))return {error:'範囲指定や不正なフラグメントは短縮できません。単一の文字列を選択してください。'};
+ let decoded;try{decoded=decodeURIComponent(target)}catch{return {error:'URLエンコードが不正です。コピーし直してください。'}}
+ const result=raw.slice(0,at+mark.length)+target;
+ return {result,decoded,originalLength:raw.length,removed:raw.length-result.length};
+}
+const $=id=>document.getElementById(id);const source=$('source'),result=$('result'),count=$('count'),status=$('status'),copy=$('copy'),jump=$('jump'),target=$('target');
+function message(text,kind=''){status.textContent=text;status.className=kind}
+function render(){const data=shorten(source.value);result.value=data.result||'';target.hidden=!data.result;target.textContent=data.result?'ジャンプ先：'+data.decoded:'';copy.disabled=!data.result;jump.setAttribute('aria-disabled',String(!data.result));if(data.result)jump.href=data.result;else jump.removeAttribute('href');const n=result.value.length;count.textContent=n+' / 255文字';count.className='count '+(n?(n>255?'bad':'ok'):'');if(data.empty)message('URLを貼り付けると自動で変換します。');else if(data.error)message(data.error,'bad');else if(n>255)message('255文字を超えています。より短く、重複しない文字列を選択してください。','bad');else message(data.removed?`${data.removed}文字短縮しました。ジャンプ位置を確認してください。`:'すでに前後の文脈がないURLです。','ok');}
+source.addEventListener('input',render);$('clear').addEventListener('click',()=>{source.value='';render();source.focus()});copy.addEventListener('click',async()=>{const value=result.value;if(!value)return;try{await navigator.clipboard.writeText(value);message('URLをコピーしました。','ok')}catch{result.focus();result.select();try{if(document.execCommand('copy'))message('URLをコピーしました。','ok');else message('選択したURLを Ctrl+C（Macは⌘C）でコピーしてください。')}catch{message('選択したURLを Ctrl+C（Macは⌘C）でコピーしてください。')}}});render();
+</script></body></html>
